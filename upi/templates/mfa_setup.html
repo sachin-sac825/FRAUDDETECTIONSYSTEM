@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>MFA Setup - UPI Fraud</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="form-card" style="max-width:480px;margin:40px auto;">
+    <h2>MFA Setup</h2>
+    <p>Scan this QR in your authenticator app, or enter secret manually.</p>
+    <div style="margin:12px 0;padding:12px;border:1px dashed #ccc;">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ uri|urlencode }}&size=200x200" alt="QR">
+      <div style="margin-top:8px;word-break:break-all;">Secret: <strong>{{ secret }}</strong></div>
+    </div>
+    <form method="POST" action="/mfa">
+      <div class="field-group">
+        <label for="token">Enter code from app</label>
+        <input id="token" name="token" type="text" required>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button type="submit" class="predict-btn">Verify & Enable MFA</button>
+      </div>
+    </form>
+  </div>
+</div>
+</body>
+</html>

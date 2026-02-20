@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>MFA Backup Codes - UPI Fraud</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="form-card" style="max-width:640px;margin:40px auto;">
+    <h2>Backup Codes</h2>
+    <p>Save these one-time backup codes in a safe place. Each code can be used once to bypass MFA.</p>
+    <div style="margin-top:12px;padding:12px;border:1px solid #eee;background:#fff;">
+      <ul>
+        {% for c in codes %}
+        <li><code>{{ c }}</code></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <p style="margin-top:12px;">If you lose these codes, you can regenerate new ones from your account settings (not implemented in demo).</p>
+    <a class="details-btn" href="/">Return</a>
+  </div>
+</div>
+</body>
+</html>

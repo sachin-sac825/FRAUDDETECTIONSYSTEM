@@ -1,0 +1,13 @@
+flask
+numpy
+pandas
+scikit-learn
+shap
+networkx
+celery
+redis
+pyotp
+cryptography
+flask-login
+python-fido2
+

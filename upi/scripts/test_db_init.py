@@ -1,0 +1,10 @@
+import database, sqlite3
+print('DB path:', database.DB_PATH)
+database.init_db()
+conn = sqlite3.connect(database.DB_PATH)
+cur = conn.cursor()
+cur.execute("PRAGMA table_info(transactions)")
+print('transactions cols:', [r[1] for r in cur.fetchall()])
+cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+print('tables:', [r[0] for r in cur.fetchall()])
+conn.close()

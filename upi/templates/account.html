@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <title>Account</title>
+  <meta charset="utf-8" />
+</head>
+<body>
+  <h1>Account: {{ current_user.display_name or current_user.upi }}</h1>
+  <p><a href="/">Back to dashboard</a></p>
+
+  <section>
+    <h2>Registered WebAuthn devices</h2>
+    {% if webauthn_creds and webauthn_creds|length > 0 %}
+      <ul id="creds">
+        {% for c in webauthn_creds %}
+          <li data-id="{{ c.id }}">ID: <code>{{ c.id }}</code> &nbsp; <button class="remove">Remove</button></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No credentials registered.</p>
+    {% endif %}
+
+    <p><a href="/webauthn_manage">Register a new device (scaffold)</a></p>
+  </section>
+
+  <script>
+    document.querySelectorAll('.remove').forEach(btn => {
+      btn.addEventListener('click', async function () {
+        const li = this.closest('li')
+        const id = li.getAttribute('data-id')
+        if (!confirm('Remove this credential?')) return
+        const res = await fetch('/webauthn/credential/delete', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id})})
+        const js = await res.json()
+        if (js.success) li.remove()
+        else alert('Failed to remove credential')
+      })
+    })
+  </script>
+</body>
+</html>

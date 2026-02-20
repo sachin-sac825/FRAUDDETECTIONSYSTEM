@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UPI Fraud Detection System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="page-wrapper">
+    <!-- Hidden Audio Elements for Alerts -->
+    <audio id="fraudAlarm" preload="auto">
+        <source src="data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==" type="audio/wav">
+    </audio>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <h1>🔒 UPI Fraud Detection System</h1>
+                <div id="welcomeBanner" class="welcome-banner" style="display:none; margin-top:8px; font-size:0.95rem; color:#333;"></div>
+            <div class="stats-container">
+                <div class="stat-card">
+                    <span class="stat-label">Total Transactions</span>
+                    <span class="stat-value" id="totalTxn">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Fraud Detected</span>
+                    <span class="stat-value fraud" id="fraudCount">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Fraud Rate</span>
+                    <span class="stat-value" id="fraudRate">0%</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Money Saved</span>
+                    <span class="stat-value money-saved" id="moneySaved">₹0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Avg Risk Score</span>
+                    <span class="stat-value" id="avgRisk">0%</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-content">
+        <!-- Left Panel: Transaction Input -->
+        <div class="left-section">
+            <div class="form-card">
+                <h2>New Transaction</h2>
+                
+                <!-- Test Guide -->
+                <div class="test-guide">
+                    <details>
+                        <summary>💡 Test Guide - Realistic Fraud Detection</summary>
+                        <div class="test-content">
+                            <h5>🚨 REALISTIC FRAUD DETECTION:</h5>
+                            <ul class="test-examples">
+                                <li><strong>Amount ≥ 50,000:</strong> Very High fraud risk (50 points)</li>
+                                <li><strong>Amount 20,000-50,000:</strong> High fraud risk (35 points)</li>
+                                <li><strong>Amount 10,000-20,000:</strong> Medium fraud risk (20 points)</li>
+                                <li><strong>Hour 23-02:</strong> Midnight fraud risk (30 points)</li>
+                                <li><strong>Hour 22-04:</strong> Late night fraud risk (15 points)</li>
+                                <li><strong>Threshold:</strong> 60+ points = FRAUD detected</li>
+                            </ul>
+                            <h5>✅ TEST EXAMPLES:</h5>
+                            <ul class="test-examples">
+                                <li>Amount: <strong>50,000</strong>, Hour: <strong>14</strong> = FRAUD (50 points)</li>
+                                <li>Amount: <strong>25,000</strong>, Hour: <strong>23</strong> = FRAUD (65 points)</li>
+                                <li>Amount: <strong>15,000</strong>, Hour: <strong>1</strong> = FRAUD (50 points)</li>
+                                <li>Amount: <strong>500</strong>, Hour: <strong>10</strong> = LEGITIMATE (0 points)</li>
+                                <li>Amount: <strong>5,000</strong>, Hour: <strong>15</strong> = LEGITIMATE (0 points)</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+                
+                <form method="POST" action="/predict" id="predictionForm" autocomplete="off">
+                    <div class="field-group">
+                        <label for="payer_upi">Payer UPI (Your Account):</label>
+                        <input type="text" id="payer_upi" name="payer_upi" placeholder="user@upi" autocomplete="off" required data-behavioral="true">
+                    </div>
+
+                    <div class="field-group">
+                        <label for="payee_upi">Payee UPI (Recipient):</label>
+                        <input type="text" id="payee_upi" name="payee_upi" placeholder="recipient@upi" autocomplete="off" required data-behavioral="true">
+                        <div id="riskCard" class="risk-card" style="display:none;"></div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="amount">Amount (₹):</label>
+                        <input type="number" id="amount" name="amount" placeholder="1000" min="0" step="0.01" required data-behavioral="true">
+                    </div>
+
+                    <div class="field-group">
+                        <label for="merchant">Merchant/Recipient Name:</label>
+                        <input type="text" id="merchant" name="merchant" placeholder="Amazon, Zomato, etc." autocomplete="off" required data-behavioral="true">
+                    </div>
+
+                    <div class="field-group">
+                        <label for="category">Transaction Category:</label>
+                        <select id="category" name="category" required>
+                            <option value="Shopping">Shopping</option>
+                            <option value="Bills">Bills & Utilities</option>
+                            <option value="Transfer">Money Transfer</option>
+                            <option value="Food">Food & Dining</option>
+                            <option value="Travel">Travel</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="location">Transaction Location:</label>
+                        <input type="text" id="location" name="location" placeholder="City or Region" autocomplete="off" required data-behavioral="true">
+                    </div>
+
+                    <div class="field-row">
+                        <div class="field-group">
+                            <label for="hour">Hour (0-23):</label>
+                            <input type="number" id="hour" name="hour" min="0" max="23" required>
+                        </div>
+                        <div class="field-group">
+                            <label for="day">Day (1-31):</label>
+                            <input type="number" id="day" name="day" min="1" max="31" required>
+                        </div>
+                    </div>
+
+                    <div class="field-row">
+                        <div class="field-group">
+                            <label for="month">Month (1-12):</label>
+                            <input type="number" id="month" name="month" min="1" max="12" required>
+                        </div>
+                        <div class="field-group">
+                            <label for="year">Year:</label>
+                            <input type="number" id="year" name="year" min="2000" max="2100" required>
+                        </div>
+                    </div>
+
+                    <!-- Hidden behavioral signal fields -->
+                    <input type="hidden" id="typing_speed" name="typing_speed" value="0">
+                    <input type="hidden" id="backspace_ratio" name="backspace_ratio" value="0">
+                    <input type="hidden" id="hesitation_time" name="hesitation_time" value="0">
+                    <input type="hidden" id="paste_detected" name="paste_detected" value="0">
+                    <input type="hidden" id="focus_changes" name="focus_changes" value="0">
+                    <input type="hidden" id="device_id" name="device_id" value="">
+
+                    <button type="submit" id="submitBtn" class="predict-btn">🔍 Analyze Transaction</button>
+                </form>
+
+                <!-- Submission Spinner -->
+                <div id="spinner" class="spinner" style="display:none;">
+                    <div class="spinner-content">
+                        <div class="spinner-circle"></div>
+                        <p>Analyzing transaction...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Results & History -->
+        <div class="right-section">
+            <!-- Result Box -->
+            {% if prediction %}
+            <div class="result-section">
+                {% if status == 'Fraud' %}
+                <!-- FRAUD DETECTED - Transaction Blocked -->
+                <div class="fraud-interception-card">
+                    <div class="interception-header">
+                        <div class="transaction-progress">
+                            <div class="progress-step completed">
+                                <span class="step-icon">✓</span>
+                                <span class="step-label">Initiated</span>
+                            </div>
+                            <div class="progress-line"></div>
+                            <div class="progress-step blocked">
+                                <span class="step-icon">⛔</span>
+                                <span class="step-label">BLOCKED</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="blocked-message">
+                        <h3>🚨 FRAUDULENT TRANSACTION BLOCKED!</h3>
+                        <p>Our security system detected and BLOCKED this transaction before it could be completed!</p>
+                    </div>
+                    
+                    <div class="transaction-summary blocked">
+                        <div class="summary-row">
+                            <span class="summary-label">Attempted Transfer To:</span>
+                            <span class="summary-value">{{ merchant }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Amount at Risk:</span>
+                            <span class="summary-value amount-risk">₹{{ amount }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Location:</span>
+                            <span class="summary-value">{{ location }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Risk Score:</span>
+                            <span class="summary-value" style="color: #e74c3c; font-weight: 700;">{{ risk_score }}% - CRITICAL</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="result-card fraud-alert">
+                    <div class="result-header">
+                        <h3>⚠️ FRAUD ALERT</h3>
+                        <span class="status-badge" style="background-color: #e74c3c;">BLOCKED</span>
+                    </div>
+                    <div class="result-content">
+                        <p class="result-text">{{ prediction }}</p>
+                        <div class="risk-meter">
+                            <div class="risk-label">Risk Score</div>
+                            <div class="risk-bar">
+                                <div class="risk-fill" style="width: {{ risk_score }}%; background-color: #e74c3c;"></div>
+                            </div>
+                            <div class="risk-value">{{ risk_score }}%</div>
+                        </div>
+                        
+                        <!-- Fraud Indicators -->
+                        {% if fraud_indicators %}
+                        <div class="fraud-indicators-box">
+                            <h4>🔍 Why Was This Blocked?</h4>
+                            <div class="indicators-list">
+                                {% for indicator in fraud_indicators %}
+                                <div class="indicator-item">
+                                    <div class="indicator-header">
+                                        <span class="indicator-name">{{ indicator.name }}</span>
+                                        <span class="indicator-risk">+{{ indicator.risk }} points</span>
+                                    </div>
+                                    <p class="indicator-desc">{{ indicator.description }}</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="fraud-alert-box">
+                            <div class="alert-title">⚠️ FRAUD ALERT - IMMEDIATE ACTION REQUIRED!</div>
+                            <div class="action-steps">
+                                <h4>What you need to do RIGHT NOW:</h4>
+                                <ol class="steps-list">
+                                    <li>
+                                        <span class="step-number">1</span>
+                                        <div class="step-content">
+                                            <strong>VERIFY WITH YOUR BANK</strong>
+                                            <p>Call your bank immediately to confirm this fraudulent attempt was detected and blocked.</p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <span class="step-number">2</span>
+                                        <div class="step-content">
+                                            <strong>CHECK YOUR ACCOUNT SECURITY</strong>
+                                            <p>Someone may have access to your UPI/banking details. Change passwords immediately.</p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <span class="step-number">3</span>
+                                        <div class="step-content">
+                                            <strong>FILE A CYBERCRIME REPORT</strong>
+                                            <p>Report this fraud attempt to the cybercrime cell for investigation.</p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <span class="step-number">4</span>
+                                        <div class="step-content">
+                                            <strong>MONITOR YOUR ACCOUNTS</strong>
+                                            <p>Watch for any unauthorized transactions or suspicious activity.</p>
+                                        </div>
+                                    </li>
+                                </ol>
+                            </div>
+                            
+                            <div class="prevention-tips">
+                                <h4>📋 How to Protect Your Account:</h4>
+                                <ul class="tips-list">
+                                    <li>🔐 Never share your UPI PIN, passwords, or OTP</li>
+                                    <li>🚨 Enable transaction alerts on your banking app</li>
+                                    <li>📲 Set up low daily transaction limits</li>
+                                    <li>🔗 Avoid public WiFi for financial transactions</li>
+                                    <li>🛡️ Use strong, unique passwords</li>
+                                    <li>📊 Check bank statements weekly</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="emergency-contacts">
+                                <h4>📞 Emergency Contacts:</h4>
+                                <div class="contact-grid">
+                                    <div class="contact-card">
+                                        <strong>Your Bank</strong>
+                                        <p>Call immediately</p>
+                                    </div>
+                                    <div class="contact-card">
+                                        <strong>Cybercrime Cell</strong>
+                                        <p>1930 (24/7)</p>
+                                    </div>
+                                    <div class="contact-card">
+                                        <strong>RBI Helpline</strong>
+                                        <p>1800-11-8008</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- LEGITIMATE TRANSACTION -->
+                <div class="result-card legitimate">
+                    <div class="interception-header">
+                        <div class="transaction-progress">
+                            <div class="progress-step completed">
+                                <span class="step-icon">✓</span>
+                                <span class="step-label">Verified</span>
+                            </div>
+                            <div class="progress-line"></div>
+                            <div class="progress-step completed">
+                                <span class="step-icon">✓</span>
+                                <span class="step-label">Approved</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="result-header">
+                        <h3>✅ Transaction Approved</h3>
+                        <span class="status-badge" style="background-color: #27ae60;">SAFE</span>
+                    </div>
+                    <div class="result-content">
+                        <p class="result-text">{{ prediction }}</p>
+                        
+                        <div class="transaction-summary safe">
+                            <div class="summary-row">
+                                <span class="summary-label">Transferring To:</span>
+                                <span class="summary-value">{{ merchant }}</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="summary-label">Amount:</span>
+                                <span class="summary-value">₹{{ amount }}</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="summary-label">Location:</span>
+                                <span class="summary-value">{{ location }}</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="summary-label">Risk Level:</span>
+                                <span class="summary-value" style="color: #27ae60; font-weight: 700;">{{ risk_score }}% - SAFE</span>
+                            </div>
+                        </div>
+                        
+                        <div class="risk-meter">
+                            <div class="risk-label">Risk Score</div>
+                            <div class="risk-bar">
+                                <div class="risk-fill" style="width: {{ risk_score }}%; background-color: #27ae60;"></div>
+                            </div>
+                            <div class="risk-value">{{ risk_score }}%</div>
+                        </div>
+                        
+                        <div class="legitimate-box">
+                            <div class="legitimate-title">✅ This Transaction Appears Safe</div>
+                            <p>Your transaction has passed all security checks and is approved.</p>
+                            <div class="safety-reminder">
+                                <strong>Security Reminder:</strong>
+                                <ul>
+                                    <li>✓ Transaction amount is normal for your account</li>
+                                    <li>✓ Transaction time is within regular hours</li>
+                                    <li>✓ Recipient is verified</li>
+                                    <li>Always verify transaction details before confirming</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if model_predictions %}
+                <details class="model-details">
+                    <summary>Model Predictions</summary>
+                    <ul class="model-list">
+                        {% for model_name, pred in model_predictions.items() %}
+                        <li>
+                            <span class="model-name">{{ model_name.replace('_', ' ').title() }}</span>
+                            <span class="model-pred {% if pred.prediction == 1 %}fraud{% else %}legitimate{% endif %}">
+                                {{ 'Fraud' if pred.prediction == 1 else 'Legitimate' }}
+                            </span>
+                            {% if pred.confidence %}<span class="model-conf">{{ pred.confidence }}%</span>{% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </details>
+                {% endif %}
+            </div>
+            {% elif error %}
+            <div class="error-box">
+                <p>{{ error }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Transaction History -->
+            <div class="history-section">
+                <h3>📋 Recent Transactions <button id="clearTxBtn" class="details-btn" style="margin-left:12px; background:#e74c3c; color:white; border:none;">Clear All</button></h3>
+                <div class="transaction-list">
+                    {% if transactions %}
+                        {% for txn in transactions|reverse %}
+                        <div class="transaction-item {% if txn.status == 'Fraud' %}fraud{% else %}legitimate{% endif %}" data-txid="{{ txn.id }}" data-explanation='{{ txn.explanation|tojson | safe }}'>
+                            <div class="txn-left">
+                                <div class="txn-id">#{{ txn.id }}</div>
+                                <div class="txn-info">
+                                    <div class="txn-upi">{{ txn.upi }}</div>
+                                    <div class="txn-time">{{ txn.timestamp }}</div>
+                                </div>
+                            </div>
+                            <div class="txn-middle">
+                                <div class="txn-amount">₹{{ txn.amount }}</div>
+                            </div>
+                            <div class="txn-right">
+                                <div class="txn-risk">{{ txn.risk_score }}%</div>
+                                <div class="txn-status" style="background-color: {{ txn.status_color }};">{{ txn.status }}</div>
+                                <button class="details-btn" onclick="showTransactionDetails({{ txn.id }})">Details</button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="no-history">No transactions yet. Submit a transaction to see it here.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Siren/Alarm Sound Generator
+function generateSirenSound() {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const duration = 3; // 3 seconds
+    const now = audioContext.currentTime;
+    
+    // Create oscillators for siren effect
+    const osc1 = audioContext.createOscillator();
+    const osc2 = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(audioContext.destination);
+    
+    // Siren pattern - alternating frequencies
+    osc1.type = 'sine';
+    osc2.type = 'square';
+    
+    // Sweep frequencies for siren effect
+    osc1.frequency.setValueAtTime(800, now);
+    osc1.frequency.exponentialRampToValueAtTime(1200, now + duration);
+    
+    osc2.frequency.setValueAtTime(600, now);
+    osc2.frequency.exponentialRampToValueAtTime(900, now + duration);
+    
+    // Volume envelope
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+    
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + duration);
+    osc2.stop(now + duration);
+}
+
+// Request notification permission
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+}
+
+// Auto-fill current date/time
+document.addEventListener('DOMContentLoaded', function() {
+    // Reset form to avoid showing previous values when reopening the page
+    const form = document.getElementById('predictionForm');
+    if (form) {
+        form.reset();
+        // Clear any browser-autofilled values explicitly
+        ['upi', 'merchant', 'amount', 'location'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    }
+
+    // If user enters a UPI, fetch their profile to show last_seen banner
+    const upiInput = document.getElementById('upi');
+    const welcomeBanner = document.getElementById('welcomeBanner');
+    function fetchAndShowLastSeen(upi) {
+        if (!upi) return;
+        fetch(`/api/user/${encodeURIComponent(upi)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data && data.success && data.profile && data.profile.last_seen) {
+                    welcomeBanner.style.display = 'block';
+                    welcomeBanner.textContent = `Welcome back — last seen: ${data.profile.last_seen}`;
+                } else {
+                    welcomeBanner.style.display = 'none';
+                }
+            }).catch(() => { welcomeBanner.style.display = 'none'; });
+    }
+
+    upiInput?.addEventListener('blur', (e) => fetchAndShowLastSeen(e.target.value));
+
+    // Payee UPI inline reputation check (on blur / input pause)
+    const payeeInput = document.getElementById('payee_upi');
+    const riskCache = {};
+    function debounce(fn, wait){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
+
+    async function sha256hex(str) {
+        const enc = new TextEncoder();
+        const data = enc.encode(str.trim().toLowerCase());
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    async function fetchReputationForVPA(vpa) {
+        if (!vpa || vpa.length < 3) return null;
+        try {
+            const h = await sha256hex(vpa);
+            if (riskCache[h]) return riskCache[h];
+            const r = await fetch('/api/reputation/' + h);
+            const j = await r.json();
+            if (j && j.success) riskCache[h] = j;
+            return j;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function renderRiskCard(data) {
+        const card = document.getElementById('riskCard');
+        if (!card) return;
+        if (!data || !data.success) { card.style.display='none'; return; }
+        const score = Math.round((data.risk_score || data.reputation_score || 0) * 100);
+        let color = '#2ecc71';
+        if (score > 75) color = '#e74c3c';
+        else if (score > 40) color = '#f1c40f';
+        card.innerHTML = `
+            <div class="risk-header" style="border-left: 6px solid ${color}; padding:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div><strong>Risk: ${score}%</strong><div class="risk-reason">${(data.reasons||[]).join(', ')}</div></div>
+                    <div class="risk-actions"><button type="button" class="small-btn" onclick="handleAllow()">Allow</button> <button type="button" class="small-verify" onclick="handleVerify()">Extra Verification</button></div>
+                </div>
+            </div>`;
+        card.style.display = 'block';
+    }
+
+    window.handleAllow = function(){ alert('Proceeding with payment (demo)'); };
+    window.handleVerify = function(){ alert('Simulating extra verification (biometric/OTP).'); };
+
+    const debouncedCheck = debounce(async function(){ const v = payeeInput.value; const res = await fetchReputationForVPA(v); renderRiskCard(res); }, 600);
+    payeeInput?.addEventListener('blur', debouncedCheck);
+    payeeInput?.addEventListener('input', debouncedCheck);
+
+    // Behavioral Signal Tracking Setup
+    const behavioralData = {
+        typing_speeds: [],
+        backspace_count: 0,
+        total_chars: 0,
+        hesitation_times: [],
+        pastes: 0,
+        focus_changes: 0,
+        form_start_time: null
+    };
+
+    // Auto-generate device ID if not present
+    if (!localStorage.getItem('device_id')) {
+        localStorage.setItem('device_id', 'dev_' + Math.random().toString(36).substr(2, 9));
+    }
+    document.getElementById('device_id').value = localStorage.getItem('device_id');
+
+    // Track behavioral signals on inputs with data-behavioral="true"
+    const behavioralInputs = document.querySelectorAll('[data-behavioral="true"]');
+    behavioralInputs.forEach(input => {
+        let lastCharTime = 0;
+        let hasContent = false;
+
+        input.addEventListener('keydown', (e) => {
+            if (!behavioralData.form_start_time) {
+                behavioralData.form_start_time = Date.now();
+            }
+            if (e.key === 'Backspace') {
+                behavioralData.backspace_count++;
+            }
+            lastCharTime = Date.now();
+        });
+
+        input.addEventListener('keyup', (e) => {
+            if (!hasContent && input.value.length > 0) {
+                hasContent = true;
+                behavioralData.hesitation_times.push(Date.now() - behavioralData.form_start_time);
+            }
+            const now = Date.now();
+            if (lastCharTime && now - lastCharTime < 1000) {
+                behavioralData.typing_speeds.push(now - lastCharTime);
+            }
+            behavioralData.total_chars += 1;
+        });
+
+        input.addEventListener('paste', (e) => {
+            behavioralData.pastes++;
+        });
+
+        input.addEventListener('focus', () => {
+            behavioralData.focus_changes++;
+        });
+    });
+
+    // Window focus change tracking
+    window.addEventListener('blur', () => behavioralData.focus_changes++);
+
+    // expose admin token from server if present
+    if ({{ 'true' if admin_token else 'false' }}) {
+        window.ADMIN_TOKEN = '{{ admin_token }}';
+    } else {
+        window.ADMIN_TOKEN = null;
+    }
+
+    const now = new Date();
+    document.getElementById('hour').value = now.getHours();
+    document.getElementById('day').value = now.getDate();
+    document.getElementById('month').value = now.getMonth() + 1;
+    document.getElementById('year').value = now.getFullYear();
+    
+    // Fetch and update statistics every 5 seconds
+    updateStats();
+    setInterval(updateStats, 5000);
+    
+    // Subscribe to SSE stream for real-time updates
+    if (!!window.EventSource) {
+        try {
+            const es = new EventSource('/stream');
+            es.onmessage = function(e) {
+                try {
+                    const payload = JSON.parse(e.data);
+                    if (!payload || !payload.type) return;
+                    if (payload.type === 'transaction') {
+                        const tx = payload.transaction;
+                        // if explanation present in payload root, attach it to the tx object for UI use
+                        if (payload.explanation) tx.explanation = payload.explanation;
+                        prependTransaction(tx);
+                        updateStats();
+                        if (tx.status === 'Fraud') {
+                            showFraudNotification(tx.upi, tx.risk_score);
+                        }
+                    } else if (payload.type === 'blocked') {
+                        const tx = payload.transaction;
+                        markTransactionBlockedInDOM(tx.id);
+                        updateStats();
+                    }
+                } catch (e) {
+                    // ignore malformed data
+                }
+            };
+            es.onerror = function(err) {
+                // EventSource error, try reconnect or ignore
+                console.log('SSE error', err);
+            };
+        } catch (err) {
+            console.log('SSE not supported', err);
+        }
+    }
+    
+    // When the form is submitted, send behavioral data and show spinner
+    form?.addEventListener('submit', async function(e){
+        e.preventDefault();
+
+        // Auto-populate timestamp
+        const now = new Date();
+        document.getElementById('hour').value = now.getHours();
+        document.getElementById('day').value = now.getDate();
+        document.getElementById('month').value = now.getMonth() + 1;
+        document.getElementById('year').value = now.getFullYear();
+
+        // Populate behavioral data
+        const avgTypingSpeed = behavioralData.typing_speeds.length > 0 
+            ? behavioralData.typing_speeds.reduce((a, b) => a + b) / behavioralData.typing_speeds.length 
+            : 0;
+        const backspaceRatio = behavioralData.total_chars > 0 
+            ? behavioralData.backspace_count / behavioralData.total_chars 
+            : 0;
+        const avgHesitation = behavioralData.hesitation_times.length > 0 
+            ? behavioralData.hesitation_times.reduce((a, b) => a + b) / behavioralData.hesitation_times.length 
+            : 0;
+
+        document.getElementById('typing_speed').value = Math.round(avgTypingSpeed * 10) / 10;
+        document.getElementById('backspace_ratio').value = Math.round(backspaceRatio * 100) / 100;
+        document.getElementById('hesitation_time').value = Math.round(avgHesitation);
+        document.getElementById('paste_detected').value = behavioralData.pastes > 0 ? 1 : 0;
+        document.getElementById('focus_changes').value = behavioralData.focus_changes;
+
+        // Show spinner
+        document.getElementById('spinner').style.display = 'flex';
+        document.getElementById('submitBtn').disabled = true;
+
+        // Send heartbeat
+        const payer_upi = document.getElementById('payer_upi')?.value;
+        if (payer_upi) {
+            fetch('/api/heartbeat', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({upi_number: payer_upi})}).catch(()=>{});
+        }
+
+        // Submit form normally
+        this.submit();
+    });
+
+    // Show fraud notification if fraud is detected
+    {% if status == 'Fraud' %}
+    setTimeout(() => {
+        showFraudNotification('{{ upi }}', '{{ risk_score }}');
+    }, 500);
+    {% endif %}
+
+    // wire clear transactions button
+    const clearBtn = document.getElementById('clearTxBtn');
+    clearBtn?.addEventListener('click', function(){
+        if (!confirm('Are you sure you want to clear ALL transactions? This action cannot be undone.')) return;
+        const headers = {};
+        if (window.ADMIN_TOKEN) headers['X-Admin-Token'] = window.ADMIN_TOKEN;
+        fetch('/api/clear_transactions', {method:'POST', headers: headers})
+            .then(r => r.json())
+            .then(data => {
+                if (data && data.success) {
+                    // clear the DOM list
+                    const list = document.querySelector('.transaction-list');
+                    if (list) list.innerHTML = '';
+                    updateStats();
+                    alert('All transactions cleared.');
+                } else if (data && data.error === 'forbidden') {
+                    alert('Forbidden: missing or invalid admin token.');
+                } else {
+                    alert('Failed to clear transactions');
+                }
+            }).catch(() => alert('Failed to clear transactions'));
+    });
+});
+
+function updateStats() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('totalTxn').textContent = data.total_transactions;
+            document.getElementById('fraudCount').textContent = data.fraud_detected;
+            document.getElementById('fraudRate').textContent = data.fraud_rate + '%';
+            document.getElementById('moneySaved').textContent = '₹' + data.money_saved.toLocaleString('en-IN');
+            document.getElementById('avgRisk').textContent = data.average_risk_score.toFixed(1) + '%';
+        });
+}
+
+function showFraudNotification(upi, riskScore) {
+    // Play siren sound
+    try {
+        generateSirenSound();
+    } catch (e) {
+        console.log('Audio context not available');
+    }
+    
+    // Flash screen effect
+    const flashOverlay = document.createElement('div');
+    flashOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(231, 76, 60, 0.3);
+        z-index: 9999;
+        pointer-events: none;
+        animation: fraudFlash 0.5s ease-in-out;
+    `;
+    document.body.appendChild(flashOverlay);
+    
+    setTimeout(() => flashOverlay.remove(), 500);
+    
+    // Browser notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('🚨 FRAUD ALERT!', {
+            body: `Suspicious transaction detected on ${upi} with ${riskScore}% risk score. Take immediate action!`,
+            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23e74c3c"/><text x="50" y="60" font-size="60" fill="white" text-anchor="middle" dominant-baseline="middle">⚠</text></svg>',
+            tag: 'fraud-alert',
+            requireInteraction: true
+        });
+    }
+    
+    // Browser alert as fallback
+    alert('🚨 FRAUD DETECTED! Please check the details below and take immediate action to secure your account.');
+    
+    // Scroll to fraud alert
+    document.querySelector('.fraud-alert-box')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Add a new transaction element to the top of the list
+function prependTransaction(tx) {
+    const list = document.querySelector('.transaction-list');
+    if (!list) return;
+    const item = document.createElement('div');
+    item.className = 'transaction-item ' + (tx.status === 'Fraud' ? 'fraud' : 'legitimate');
+    item.setAttribute('data-txid', tx.id || '');
+    // attach explanation if present
+    if (tx.explanation) {
+        try { item.setAttribute('data-explanation', JSON.stringify(tx.explanation)); } catch(e) { item.setAttribute('data-explanation', ''); }
+    }
+    item.innerHTML = `
+        <div class="txn-left">
+            <div class="txn-id">#${tx.id}</div>
+            <div class="txn-info">
+                <div class="txn-upi">${tx.upi}</div>
+                <div class="txn-time">${tx.timestamp}</div>
+            </div>
+        </div>
+        <div class="txn-middle">
+            <div class="txn-amount">₹${tx.amount}</div>
+        </div>
+        <div class="txn-right">
+            <div class="txn-risk">${tx.risk_score}%</div>
+            <div class="txn-status" style="background-color: ${tx.status_color};">${tx.status}</div>
+            <button class="details-btn" onclick="showTransactionDetails(${tx.id})">Details</button>
+        </div>
+    `;
+    list.insertBefore(item, list.firstChild);
+    // attach click to details if explanation present
+    const btn = item.querySelector('.details-btn');
+    if (btn) btn.addEventListener('click', () => showTransactionDetails(tx.id));
+    // limit to 50 rows
+    const items = list.querySelectorAll('.transaction-item');
+    if (items.length > 50) items[items.length - 1].remove();
+}
+
+function markTransactionBlockedInDOM(txId) {
+    const items = document.querySelectorAll('.transaction-item');
+    items.forEach(it => {
+        const idEl = it.querySelector('.txn-id');
+        if (!idEl) return;
+        const idText = idEl.textContent.trim();
+        if (idText === `#${txId}`) {
+            it.classList.add('fraud');
+            const badge = it.querySelector('.txn-status');
+            if (badge) {
+                badge.textContent = 'Fraud - BLOCKED';
+                badge.style.backgroundColor = '#e74c3c';
+            }
+        }
+    });
+}
+
+// Show transaction explanation/details in a modal
+function showTransactionDetails(txId) {
+    if (!txId) return;
+    // find element and read cached explanation
+    const el = document.querySelector(`.transaction-item[data-txid="${txId}"]`);
+    let explanation = null;
+    if (el && el.dataset && el.dataset.explanation) {
+        try { explanation = JSON.parse(el.dataset.explanation); } catch(e) { explanation = null; }
+    }
+
+    if (explanation) {
+        renderExplanationModal(txId, explanation);
+        return;
+    }
+
+    // Fetch explanation from server
+    fetch(`/api/explain/${txId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.success && data.explanation) {
+                // cache on DOM for faster subsequent access
+                if (el) el.dataset.explanation = JSON.stringify(data.explanation);
+                renderExplanationModal(txId, data.explanation);
+            } else {
+                renderExplanationModal(txId, null);
+            }
+        }).catch(() => {
+            renderExplanationModal(txId, null);
+        });
+}
+
+function renderExplanationModal(txId, explanation) {
+    // remove existing modal
+    const prev = document.getElementById('explainModal');
+    if (prev) prev.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'explainModal';
+    modal.className = 'explain-modal';
+
+    let html = `<div class="explain-panel"><div class="explain-header"><h3>Transaction #${txId} - Explanation</h3><button class="close-explain">Close</button></div>`;
+    if (!explanation) {
+        html += `<div class="explain-body"><p>No explanation available for this transaction.</p></div>`;
+    } else {
+        html += `<div class="explain-body"><div class="explain-base">Base Value: <strong>${explanation.base_value ?? 'N/A'}</strong></div><div class="explain-contribs"><h4>Feature contributions</h4><ul>`;
+        for (const [k, v] of Object.entries(explanation.contributions || {})) {
+            html += `<li class="contrib-item"><span class="contrib-key">${k}</span><span class="contrib-val">${(v).toFixed(3)}</span></li>`;
+        }
+        html += `</ul></div></div>`;
+    }
+    html += `</div>`;
+    modal.innerHTML = html;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('.close-explain').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (ev) => { if (ev.target === modal) modal.remove(); });
+}
+</script>
+
+</body>
+</html>

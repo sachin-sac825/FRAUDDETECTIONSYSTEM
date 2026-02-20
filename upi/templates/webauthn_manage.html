@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <title>WebAuthn Management</title>
+  <meta charset="utf-8" />
+</head>
+<body>
+  <h1>WebAuthn (FIDO2) Management</h1>
+  <p>This is a scaffold page for registering and testing WebAuthn devices.</p>
+
+  <label for="upi">UPI (leave blank to use logged in user):</label>
+  <input id="upi" placeholder="user@upi" />
+  <button id="begin">Begin registration</button>
+    <button id="beginAuth">Begin authentication</button>
+
+  <script>
+    // helpers: decode/encode websafe-base64
+    function b64ToBuffer(b64) {
+      // base64url -> base64
+      b64 = b64.replace(/-/g, '+').replace(/_/g, '/')
+      // pad
+      while (b64.length % 4) b64 += '='
+      const str = atob(b64)
+      const arr = new Uint8Array(str.length)
+      for (let i = 0; i < str.length; i++) arr[i] = str.charCodeAt(i)
+      return arr.buffer
+    }
+    function bufferToB64(buf) {
+      const bytes = new Uint8Array(buf)
+      let s = ''
+      for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i])
+      let b64 = btoa(s)
+      b64 = b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+      return b64
+    }
+
+    document.getElementById('begin').onclick = async () => {
+      const upi = document.getElementById('upi').value || undefined
+      const res = await fetch('/webauthn/register/begin', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({upi})})
+      const js = await res.json()
+      document.getElementById('output').textContent = JSON.stringify(js, null, 2)
+      if (!js.success || !js.options) return
+      const opts = js.options
+      // Convert binary fields to ArrayBuffer expected by navigator.credentials.create
+      if (opts.challenge) {
+        try { opts.challenge = b64ToBuffer(opts.challenge) } catch(e){}
+      }
+      if (opts.user && opts.user.id) {
+        try { opts.user.id = b64ToBuffer(opts.user.id) } catch(e){}
+      }
+      if (opts.excludeCredentials) {
+        opts.excludeCredentials = opts.excludeCredentials.map(c => ({...c, id: b64ToBuffer(c.id)}))
+      }
+      try {
+        const cred = await navigator.credentials.create({publicKey: opts})
+        // build attestation payload
+        const clientDataJSON = bufferToB64(cred.response.clientDataJSON)
+        const attestationObject = bufferToB64(cred.response.attestationObject)
+        const payload = { id: cred.id, clientDataJSON, attestationObject }
+        const complete = await fetch('/webauthn/register/complete', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({upi, attestation: payload})})
+        const cres = await complete.json()
+        document.getElementById('output').textContent = JSON.stringify(cres, null, 2)
+      } catch (err) {
+        document.getElementById('output').textContent = 'Error: ' + err.toString()
+      }
+    }
+
+    // Authentication flow
+    document.getElementById('beginAuth').onclick = async () => {
+      const upi = document.getElementById('upi').value || undefined
+      const res = await fetch('/webauthn/authenticate/begin', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({upi})})
+      const js = await res.json()
+      document.getElementById('output').textContent = JSON.stringify(js, null, 2)
+      if (!js.success || !js.options) return
+      const opts = js.options
+      if (opts.challenge) {
+        try { opts.challenge = b64ToBuffer(opts.challenge) } catch(e){}
+      }
+      if (opts.allowCredentials) {
+        opts.allowCredentials = opts.allowCredentials.map(c => ({...c, id: b64ToBuffer(c.id)}))
+      }
+      try {
+        const assertion = await navigator.credentials.get({publicKey: opts})
+        const clientDataJSON = bufferToB64(assertion.response.clientDataJSON)
+        const authenticatorData = bufferToB64(assertion.response.authenticatorData)
+        const signature = bufferToB64(assertion.response.signature)
+        const payload = { credentialId: assertion.id, clientDataJSON, authenticatorData, signature }
+        const complete = await fetch('/webauthn/authenticate/complete', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({upi, assertion: payload})})
+        const cres = await complete.json()
+        document.getElementById('output').textContent = JSON.stringify(cres, null, 2)
+      } catch (err) {
+        document.getElementById('output').textContent = 'Auth Error: ' + err.toString()
+      }
+    }
+  </script>
+</body>
+</html>

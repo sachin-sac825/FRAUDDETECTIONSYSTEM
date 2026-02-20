@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Register - UPI Fraud</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="form-card" style="max-width:480px;margin:40px auto;">
+    <h2>Create Account</h2>
+    <form method="POST" action="/register">
+      <div class="field-group">
+        <label for="upi">UPI (username)</label>
+        <input id="upi" name="upi" type="text" required>
+      </div>
+      <div class="field-group">
+        <label for="display_name">Display Name</label>
+        <input id="display_name" name="display_name" type="text" required>
+      </div>
+      <div class="field-group">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button type="submit" class="predict-btn">Create account</button>
+        <a href="/login" class="details-btn">Sign in</a>
+      </div>
+    </form>
+  </div>
+</div>
+</body>
+</html>
